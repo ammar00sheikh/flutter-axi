@@ -1,0 +1,57 @@
+{
+  "name": "flutter-axi",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.1.1",
+  "description": "AXI-compliant Flutter app automation — widget-tree snapshots, driver interactions, native device control, TOON output, contextual suggestions",
+  "type": "module",
+  "keywords": [
+    "flutter",
+    "dart",
+    "mobile",
+    "emulator",
+    "simulator",
+    "cli",
+    "agent",
+    "axi",
+    "toon",
+    "mcp"
+  ],
+  "bin": {
+    "flutter-axi": "dist/bin/flutter-axi.js"
+  },
+  "files": [
+    "dist",
+    "skills/flutter-axi",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/bin/flutter-axi.js",
+    "build:skill": "tsx scripts/build-skill.ts",
+    "dev": "tsx bin/flutter-axi.ts",
+    "test": "vitest run --dir test",
+    "test:watch": "vitest --dir test",
+    "test:e2e": "vitest run --dir e2e --no-file-parallelism --testTimeout 600000 --hookTimeout 600000",
+    "prepublishOnly": "npm run build"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@toon-format/toon": "^2.1.0",
+    "axi-sdk-js": "^0.1.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.8.3",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "yaml": "^2.9.0"
+  }
+}

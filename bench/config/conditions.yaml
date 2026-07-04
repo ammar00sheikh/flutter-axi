@@ -1,0 +1,53 @@
+# Benchmark conditions — each defines how the agent automates a Flutter app.
+#
+# flutter-axi bridges auto-start per session and every run gets its own
+# FLUTTER_AXI_SESSION (reaped by the runner afterwards), so neither condition
+# needs an explicit daemon.
+
+conditions:
+  flutter-axi:
+    name: "Flutter AXI (CLI wrapper)"
+    tool: flutter-axi
+    agents_md: |
+      # Tools
+
+      You have the `flutter-axi` CLI installed for controlling Flutter apps
+      and mobile devices/simulators. Use it for all app automation tasks.
+      Do NOT use the flutter/dart CLIs, adb, or xcrun directly.
+
+      Run `flutter-axi --help` for available commands and usage.
+    daemon: none
+    command_policy:
+      require_any_prefix: ["flutter-axi"]
+      forbid_any_prefix:
+        - "adb"
+        - "xcrun"
+        - "flutter"
+        - "dart"
+
+  dart-mcp:
+    name: "Dart MCP server (raw tools)"
+    tool: mcp
+    agents_md: |
+      # Tools
+
+      You have a Dart/Flutter MCP server with tools for controlling Flutter
+      apps (launching, widget tree inspection, driver interactions, logs).
+      Use the available MCP tools for all app automation tasks.
+      Do NOT use the flutter/dart CLIs, adb, or xcrun directly.
+
+      Notes:
+      - Register the Flutter project root with the add_roots tool before
+        using tools that operate on a project.
+      - Connect to the app's Dart Tooling Daemon (connect_dart_tooling_daemon)
+        after launching before inspecting the widget tree.
+      - The flutter_driver tool only works for apps launched with a
+        driver-enabled entrypoint. The benchmark app provides one: launch with
+        target "lib/flutter_axi_main.dart" when you need driver interactions
+        (tap, enter_text, scroll, get_text).
+    daemon: none
+    mcp_config:
+      mcpServers:
+        dart:
+          command: "dart"
+          args: ["mcp-server"]

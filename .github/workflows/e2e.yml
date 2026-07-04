@@ -1,0 +1,36 @@
+name: e2e
+
+# Live end-to-end suite: boots an iOS simulator on a macOS runner, creates the
+# counter fixture, and drives the full CLI stack. Heavier than ci.yml, so it
+# runs on demand (and can be pointed at a branch) rather than on every push.
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e-macos:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: npm ci
+
+      - name: Boot an iOS simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -oE '\(([0-9A-F-]{36})\)' | head -1 | tr -d '()')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Create the counter fixture
+        run: bench/scripts/setup-fixture.sh
+
+      - run: npm run test:e2e
