@@ -49,6 +49,16 @@ import {
   type LifecycleAction,
 } from "./device.js";
 import { readStdin, runScript } from "./run.js";
+import {
+  collectCpuProfile,
+  collectMemory,
+  computeFrameStats,
+  connectVm,
+  formatBytes,
+  recordFrames,
+  startTimeline,
+  stopTimeline,
+} from "./vmservice.js";
 import { truncateText } from "./snapshot.js";
 import { getSuggestions } from "./suggestions.js";
 import { installHooksOrThrow } from "./hooks.js";
@@ -70,13 +80,14 @@ export type MainOptions = {
 };
 
 export const TOP_HELP = `usage: flutter-axi [command] [args] [flags]
-commands[27]:
+commands[28]:
   devices, launch <root> --device <id>, attach --dtd <uri>, apps, stopapp,
   snapshot, tap @<uid>, fill @<uid> <text>, type <text>, press <action>,
   scroll @<uid>, scrollinto @<uid>, back, text @<uid>, wait <ms>,
   waitfor <text>, reload, restart, logs, errors, screenshot <path>,
-  gps <lat> <lon>, permission <action> <name>, deeplink <url>, push,
-  applifecycle <action>, run, start, stop, setup <hooks|driver <root>>
+  perf [frames|trace|cpu], gps <lat> <lon>, permission <action> <name>,
+  deeplink <url>, push, applifecycle <action>, run, start, stop,
+  setup <hooks|driver <root>>
 
 flags[3]:
   --app <name>  Target a named session (one session = one app; e.g. --app user,
@@ -326,6 +337,44 @@ flags:
 examples:
   flutter-axi screenshot ./app.png
   flutter-axi screenshot ./screen.png --os`,
+
+  perf: `usage: flutter-axi perf [frames|trace|cpu] [flags]
+Performance monitoring via the app's Dart VM service.
+
+subcommands:
+  perf                        Memory snapshot: per-isolate heap/external plus
+                              process RSS when available
+  perf frames [--duration <ms>] [--tap <ref>] [--scroll <ref>] [--budget <ms>]
+                              Record frame timings for a window and report
+                              jank aggregates (avg/p95/max build and raster,
+                              jank count vs the frame budget, fps). Frames are
+                              only produced while the UI renders - use --tap
+                              or --scroll to generate load during the window.
+  perf trace start            Start recording a VM timeline (Dart, Embedder,
+                              GC streams)
+  perf trace stop [--file <path>]
+                              Stop recording and save the timeline JSON
+                              (default ./flutter-timeline.json; loadable in
+                              Perfetto / chrome://tracing)
+  perf cpu [--duration <ms>]  Sample the CPU profiler for a window and report
+                              the top functions by exclusive samples
+
+flags:
+  --duration <ms>  Recording window (default: 5000)
+  --tap <ref>      Repeatedly tap this widget during the frames window
+                   (@uid or finder string like text:Increment)
+  --scroll <ref>   Alternately scroll this widget up/down during the window
+  --budget <ms>    Frame budget for jank classification (default: 16.7 - 60Hz;
+                   use 8.3 for 120Hz displays)
+  --file <path>    Output path for perf trace stop
+
+examples:
+  flutter-axi perf
+  flutter-axi perf frames --duration 5000 --scroll type:ListView
+  flutter-axi perf frames --tap tooltip:Increment
+  flutter-axi perf trace start
+  flutter-axi perf trace stop --file ./trace.json
+  flutter-axi perf cpu --duration 3000`,
 
   gps: `usage: flutter-axi gps <lat> <lon> | gps --route <file> [--interval <ms>]
 Set the device's mock GPS location, or play a route.
@@ -1038,6 +1087,226 @@ async function handleScreenshot(args: string[]): Promise<string> {
   return encode({ screenshot: filePath });
 }
 
+// --- Performance handlers ---
+
+async function handlePerfMemory(): Promise<string> {
+  requireAppState();
+  const client = await connectVm();
+  try {
+    const mem = await collectMemory(client);
+    const blocks: string[] = [];
+    const totalHeap = mem.isolates.reduce((a, i) => a + i.heapUsedBytes, 0);
+    const totalExternal = mem.isolates.reduce((a, i) => a + i.externalBytes, 0);
+    const summary: Record<string, unknown> = {
+      heapUsed: formatBytes(totalHeap),
+      external: formatBytes(totalExternal),
+      isolates: mem.isolates.length,
+    };
+    if (mem.processRssBytes !== null) {
+      summary.processRss = formatBytes(mem.processRssBytes);
+    }
+    blocks.push(encode({ memory: summary }));
+    if (mem.isolates.length > 0) {
+      const header = `isolates[${mem.isolates.length}]{name,heapUsed,heapCapacity,external}:`;
+      const rows = mem.isolates.map(
+        (i) =>
+          `  ${i.name},${formatBytes(i.heapUsedBytes)},${formatBytes(i.heapCapacityBytes)},${formatBytes(i.externalBytes)}`,
+      );
+      blocks.push(`${header}\n${rows.join("\n")}`);
+    }
+    blocks.push(
+      renderHelp([
+        "Run `flutter-axi perf frames --duration 5000 --scroll <ref>` to measure rendering under load",
+        "Run `flutter-axi perf trace start` to record a full timeline",
+      ]),
+    );
+    return renderOutput(blocks);
+  } finally {
+    client.close();
+  }
+}
+
+async function handlePerfFrames(args: string[]): Promise<string> {
+  const parsed = parseFlags(args, ["--duration", "--tap", "--scroll", "--budget"]);
+  const durationMs = parsed.values["duration"]
+    ? Number(parsed.values["duration"])
+    : 5000;
+  const budgetMs = parsed.values["budget"]
+    ? Number(parsed.values["budget"])
+    : 16.7;
+  if (Number.isNaN(durationMs) || durationMs <= 0 || Number.isNaN(budgetMs)) {
+    throw new FlutterAxiError(
+      "Invalid --duration/--budget value",
+      "VALIDATION_ERROR",
+      ["Run `flutter-axi perf frames --duration 5000`"],
+    );
+  }
+  requireAppState();
+
+  // Load generator: repeated taps or alternating scrolls during the window.
+  let onWindow: (() => Promise<void>) | undefined;
+  const tapRef = parsed.values["tap"];
+  const scrollRef = parsed.values["scroll"];
+  if (tapRef && scrollRef) {
+    throw new FlutterAxiError(
+      "Use either --tap or --scroll, not both",
+      "VALIDATION_ERROR",
+      [],
+    );
+  }
+  if (tapRef) {
+    const finder = resolveFinderArg(tapRef);
+    onWindow = async () => {
+      const deadline = Date.now() + durationMs;
+      while (Date.now() < deadline) {
+        await tap(finder).catch(() => {});
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    };
+  } else if (scrollRef) {
+    const finder = resolveFinderArg(scrollRef);
+    onWindow = async () => {
+      const deadline = Date.now() + durationMs;
+      let dy = -400;
+      while (Date.now() < deadline) {
+        await scroll(finder, { dy, durationMs: 300 }).catch(() => {});
+        dy = -dy;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    };
+  }
+
+  const client = await connectVm();
+  try {
+    const samples = await recordFrames(client, durationMs, onWindow);
+    if (samples.length === 0) {
+      return renderOutput([
+        `frames: 0 frames rendered during the ${durationMs}ms window - the UI was idle`,
+        renderHelp([
+          "Pass --tap <ref> or --scroll <ref> to generate load during the window",
+          'Example: `flutter-axi perf frames --duration 5000 --scroll type:ListView`',
+        ]),
+      ]);
+    }
+    const stats = computeFrameStats(samples, durationMs, budgetMs);
+    const blocks: string[] = [
+      encode({
+        frames: {
+          count: stats.frameCount,
+          fps: stats.fps,
+          jank: `${stats.jankCount} (${stats.jankPct}% over ${stats.budgetMs}ms budget)`,
+          build: `avg ${stats.avgBuildMs}ms, p95 ${stats.p95BuildMs}ms, max ${stats.maxBuildMs}ms`,
+          raster: `avg ${stats.avgRasterMs}ms, p95 ${stats.p95RasterMs}ms, max ${stats.maxRasterMs}ms`,
+          windowMs: stats.durationMs,
+        },
+      }),
+    ];
+    const suggestions: string[] = [];
+    if (stats.jankCount > 0) {
+      suggestions.push(
+        "Run `flutter-axi perf trace start`, reproduce the jank, then `perf trace stop` for a full timeline",
+        "Run `flutter-axi perf cpu --duration 3000` to see where CPU time goes",
+      );
+    }
+    if (suggestions.length > 0) blocks.push(renderHelp(suggestions));
+    return renderOutput(blocks);
+  } finally {
+    client.close();
+  }
+}
+
+async function handlePerfTrace(args: string[]): Promise<string> {
+  const parsed = parseFlags(args, ["--file"]);
+  const action = parsed.positional[0];
+  requireAppState();
+  const client = await connectVm();
+  try {
+    if (action === "start") {
+      await startTimeline(client);
+      return renderOutput([
+        encode({ trace: "recording" }),
+        renderHelp([
+          "Reproduce the scenario (tap/scroll/waitfor), then run `flutter-axi perf trace stop --file ./trace.json`",
+        ]),
+      ]);
+    }
+    if (action === "stop") {
+      const filePath = resolveOutputPath(
+        parsed.values["file"] ?? "./flutter-timeline.json",
+      );
+      const { traceEvents } = await stopTimeline(client);
+      writeFileSync(filePath, JSON.stringify({ traceEvents }));
+      return renderOutput([
+        encode({ trace: filePath, events: traceEvents.length }),
+        renderHelp(["Open the file in https://ui.perfetto.dev or chrome://tracing"]),
+      ]);
+    }
+    throw new FlutterAxiError(
+      "Usage: perf trace <start|stop>",
+      "VALIDATION_ERROR",
+      [
+        "Run `flutter-axi perf trace start`, reproduce the scenario, then `flutter-axi perf trace stop`",
+      ],
+    );
+  } finally {
+    client.close();
+  }
+}
+
+async function handlePerfCpu(args: string[]): Promise<string> {
+  const parsed = parseFlags(args, ["--duration"]);
+  const durationMs = parsed.values["duration"]
+    ? Number(parsed.values["duration"])
+    : 5000;
+  if (Number.isNaN(durationMs) || durationMs <= 0) {
+    throw new FlutterAxiError("Invalid --duration value", "VALIDATION_ERROR", [
+      "Run `flutter-axi perf cpu --duration 3000`",
+    ]);
+  }
+  requireAppState();
+  const client = await connectVm();
+  try {
+    const profile = await collectCpuProfile(client, durationMs);
+    if (profile.sampleCount === 0) {
+      return renderOutput([
+        `cpu: 0 samples collected during the ${durationMs}ms window - the isolate was idle`,
+        renderHelp([
+          "Generate load first (tap/scroll), or profile a busier scenario",
+        ]),
+      ]);
+    }
+    const blocks: string[] = [
+      encode({
+        cpu: {
+          samples: profile.sampleCount,
+          windowMs: durationMs,
+        },
+      }),
+    ];
+    const header = `topFunctions[${profile.topFunctions.length}]{name,exclusivePct,samples}:`;
+    const rows = profile.topFunctions.map(
+      (f) => `  ${f.name},${f.exclusivePct}%,${f.samples}`,
+    );
+    blocks.push(`${header}\n${rows.join("\n")}`);
+    return renderOutput(blocks);
+  } finally {
+    client.close();
+  }
+}
+
+async function handlePerf(args: string[]): Promise<string> {
+  const sub = args[0];
+  if (sub === undefined) return handlePerfMemory();
+  if (sub === "frames") return handlePerfFrames(args.slice(1));
+  if (sub === "trace") return handlePerfTrace(args.slice(1));
+  if (sub === "cpu") return handlePerfCpu(args.slice(1));
+  throw new FlutterAxiError(
+    `Unknown perf subcommand: ${sub}`,
+    "VALIDATION_ERROR",
+    ["Run `flutter-axi perf --help` - subcommands: frames, trace, cpu"],
+  );
+}
+
 async function handleGps(args: string[]): Promise<string> {
   const parsed = parseFlags(args, ["--route", "--interval"]);
   const target = deviceTargetFromState({});
@@ -1421,6 +1690,7 @@ const COMMANDS: Record<string, CommandFn> = {
   logs: withFullFlag(handleLogs),
   errors: withoutFullFlag(handleErrors),
   screenshot: withoutFullFlag(handleScreenshot),
+  perf: withoutFullFlag(handlePerf),
   gps: withoutFullFlag(handleGps),
   permission: withoutFullFlag(handlePermission),
   deeplink: withoutFullFlag(handleDeeplink),

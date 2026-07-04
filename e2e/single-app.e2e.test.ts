@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it, afterAll } from "vitest";
-import { existsSync, mkdtempSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -113,6 +113,42 @@ describe.runIf(enabled).sequential("single-app e2e (live simulator)", () => {
     expect(counterValue(r.stdout)).toBe("0");
   });
 
+  it("reports a perf memory snapshot", async () => {
+    const r = await cli(["perf"], { session: SESSION });
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("heapUsed:");
+    expect(r.stdout).toContain("isolates");
+  });
+
+  it("records frame stats under tap load", async () => {
+    const r = await cli(
+      ["perf", "frames", "--duration", "3000", "--tap", "tooltip:Increment"],
+      { session: SESSION },
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("fps:");
+    expect(r.stdout).toContain("jank:");
+    const count = Number(r.stdout.match(/count: (\d+)/)?.[1] ?? 0);
+    expect(count).toBeGreaterThan(10);
+  });
+
+  it("captures a VM timeline trace to a file", async () => {
+    const start = await cli(["perf", "trace", "start"], { session: SESSION });
+    expect(start.code).toBe(0);
+    await cli(["tap", "tooltip:Increment"], { session: SESSION });
+    const dir = mkdtempSync(join(tmpdir(), "flutter-axi-e2e-"));
+    const path = join(dir, "trace.json");
+    const stop = await cli(["perf", "trace", "stop", "--file", path], {
+      session: SESSION,
+    });
+    expect(stop.code).toBe(0);
+    expect(existsSync(path)).toBe(true);
+    const trace = JSON.parse(readFileSync(path, "utf-8")) as {
+      traceEvents: unknown[];
+    };
+    expect(trace.traceEvents.length).toBeGreaterThan(100);
+  });
+
   it("saves a driver screenshot", async () => {
     const dir = mkdtempSync(join(tmpdir(), "flutter-axi-e2e-"));
     const path = join(dir, "driver.png");
@@ -123,17 +159,21 @@ describe.runIf(enabled).sequential("single-app e2e (live simulator)", () => {
   });
 
   it("runs a script with the app helper", async () => {
+    // State-independent: earlier tests (frame-load taps) move the counter,
+    // so assert the delta rather than an absolute value.
     const r = await cli(["run"], {
       session: SESSION,
       stdin: `
+        const read = async () => Number((await app.snapshot()).match(/Text "(\\d+)"/)[1]);
+        const before = await read();
         await app.tap("tooltip:Increment");
         await app.wait(400);
-        const snap = await app.snapshot();
-        console.log("counter:", snap.match(/Text "(\\d+)"/)[1]);
+        const after = await read();
+        console.log("delta:", after - before);
       `,
     });
     expect(r.code).toBe(0);
-    expect(r.stdout.trim()).toBe("counter: 1");
+    expect(r.stdout.trim()).toBe("delta: 1");
   });
 
   it("stops the app idempotently", async () => {

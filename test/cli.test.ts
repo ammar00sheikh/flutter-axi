@@ -51,6 +51,7 @@ describe("TOP_HELP / per-command help", () => {
     "logs",
     "errors",
     "screenshot",
+    "perf",
     "gps",
     "permission",
     "deeplink",

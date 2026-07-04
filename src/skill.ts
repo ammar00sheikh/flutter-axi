@@ -5,8 +5,9 @@ import { HOME_DESCRIPTION, TOP_HELP } from "./cli.js";
 export const SKILL_DESCRIPTION =
   "Control a Flutter app on an emulator, simulator, or device through the flutter-axi CLI - " +
   "launch, widget-tree snapshots, tap, fill text fields, scroll, hot reload, read logs and " +
-  "runtime errors, screenshots, mock GPS, grant permissions, deep links, push notifications. " +
-  "Use whenever a task needs to run, drive, or test a Flutter mobile app, including " +
+  "runtime errors, screenshots, mock GPS, grant permissions, deep links, push notifications, " +
+  "and performance profiling (frame timings/jank, memory, CPU, timeline traces). " +
+  "Use whenever a task needs to run, drive, test, or profile a Flutter mobile app, including " +
   "multi-app flows across two devices.";
 
 function yamlDoubleQuote(value: string): string {
@@ -79,8 +80,9 @@ Skip it for pure Dart/Flutter code tasks (analysis, tests, formatting) that don'
 5. After a state-changing action, confirm the outcome with the returned snapshot (or \`text @<uid>\` / \`screenshot <path>\`) before reporting success.
 6. Re-orient anytime with \`snapshot\`; debug with \`logs\` and \`errors\`; iterate on code with \`reload\` / \`restart\`.
 7. Native device control: \`gps <lat> <lon>\` (or \`--route\`), \`permission grant|revoke <name>\`, \`deeplink <url>\`, \`push --title ... --body ...\`, \`applifecycle force-stop|background|...\`, \`screenshot <path> --os\`.
-8. Multi-app flows: add \`--app <name>\` to any command to target a named session (one session = one app+device), or script both apps at once with \`run\` (globals \`apps.user\`, \`apps.driver\`).
-9. Every response ends with contextual next-step hints - follow them. The first command auto-starts a persistent per-session bridge; run \`stop\` when you are done.
+8. Performance: \`perf\` (memory), \`perf frames --duration 5000 --scroll <ref>\` (frame timings + jank under load - frames only render while the UI moves, so pass \`--tap\`/\`--scroll\` to generate load), \`perf trace start\`/\`perf trace stop --file <path>\` (timeline for Perfetto), \`perf cpu --duration <ms>\` (top functions).
+9. Multi-app flows: add \`--app <name>\` to any command to target a named session (one session = one app+device), or script both apps at once with \`run\` (globals \`apps.user\`, \`apps.driver\`).
+10. Every response ends with contextual next-step hints - follow them. The first command auto-starts a persistent per-session bridge; run \`stop\` when you are done.
 
 ## Commands
 

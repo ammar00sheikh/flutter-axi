@@ -1,6 +1,6 @@
 ---
 name: flutter-axi
-description: "Control a Flutter app on an emulator, simulator, or device through the flutter-axi CLI - launch, widget-tree snapshots, tap, fill text fields, scroll, hot reload, read logs and runtime errors, screenshots, mock GPS, grant permissions, deep links, push notifications. Use whenever a task needs to run, drive, or test a Flutter mobile app, including multi-app flows across two devices."
+description: "Control a Flutter app on an emulator, simulator, or device through the flutter-axi CLI - launch, widget-tree snapshots, tap, fill text fields, scroll, hot reload, read logs and runtime errors, screenshots, mock GPS, grant permissions, deep links, push notifications, and performance profiling (frame timings/jank, memory, CPU, timeline traces). Use whenever a task needs to run, drive, test, or profile a Flutter mobile app, including multi-app flows across two devices."
 user-invocable: false
 author: Waselni
 metadata:
@@ -31,19 +31,21 @@ Skip it for pure Dart/Flutter code tasks (analysis, tests, formatting) that don'
 5. After a state-changing action, confirm the outcome with the returned snapshot (or `text @<uid>` / `screenshot <path>`) before reporting success.
 6. Re-orient anytime with `snapshot`; debug with `logs` and `errors`; iterate on code with `reload` / `restart`.
 7. Native device control: `gps <lat> <lon>` (or `--route`), `permission grant|revoke <name>`, `deeplink <url>`, `push --title ... --body ...`, `applifecycle force-stop|background|...`, `screenshot <path> --os`.
-8. Multi-app flows: add `--app <name>` to any command to target a named session (one session = one app+device), or script both apps at once with `run` (globals `apps.user`, `apps.driver`).
-9. Every response ends with contextual next-step hints - follow them. The first command auto-starts a persistent per-session bridge; run `stop` when you are done.
+8. Performance: `perf` (memory), `perf frames --duration 5000 --scroll <ref>` (frame timings + jank under load - frames only render while the UI moves, so pass `--tap`/`--scroll` to generate load), `perf trace start`/`perf trace stop --file <path>` (timeline for Perfetto), `perf cpu --duration <ms>` (top functions).
+9. Multi-app flows: add `--app <name>` to any command to target a named session (one session = one app+device), or script both apps at once with `run` (globals `apps.user`, `apps.driver`).
+10. Every response ends with contextual next-step hints - follow them. The first command auto-starts a persistent per-session bridge; run `stop` when you are done.
 
 ## Commands
 
 ```
-commands[27]:
+commands[28]:
   devices, launch <root> --device <id>, attach --dtd <uri>, apps, stopapp,
   snapshot, tap @<uid>, fill @<uid> <text>, type <text>, press <action>,
   scroll @<uid>, scrollinto @<uid>, back, text @<uid>, wait <ms>,
   waitfor <text>, reload, restart, logs, errors, screenshot <path>,
-  gps <lat> <lon>, permission <action> <name>, deeplink <url>, push,
-  applifecycle <action>, run, start, stop, setup <hooks|driver <root>>
+  perf [frames|trace|cpu], gps <lat> <lon>, permission <action> <name>,
+  deeplink <url>, push, applifecycle <action>, run, start, stop,
+  setup <hooks|driver <root>>
 
 built-in:
   update: Upgrade flutter-axi to the latest published npm version

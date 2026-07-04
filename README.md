@@ -158,6 +158,22 @@ flutter-axi applifecycle force-stop           # install/uninstall/clear/backgrou
 flutter-axi screenshot ./screen.png --os      # OS-level capture (system UI included)
 ```
 
+## Performance Monitoring
+
+Profiling goes straight to the app's Dart VM service (discovered automatically from the run logs) — every result is a pre-aggregated, decision-ready summary:
+
+```sh
+flutter-axi perf                                          # memory: heap/external per isolate + process RSS
+flutter-axi perf frames --duration 5000 --scroll type:ListView
+# frames: {count: 230, fps: 57.5, jank: "1 (0.4% over 16.7ms budget)",
+#          build: "avg 2.2ms, p95 3.7ms, max 34.2ms", raster: "avg 0.8ms, ..."}
+flutter-axi perf trace start && flutter-axi tap @g1:7 && flutter-axi perf trace stop --file ./trace.json
+# timeline JSON loadable in https://ui.perfetto.dev
+flutter-axi perf cpu --duration 3000                      # top functions by exclusive samples
+```
+
+`perf frames` measures frames rendered during the window — pass `--tap <ref>` or `--scroll <ref>` and the CLI generates the load itself (e.g. jank-test a list with one command). Use `--budget 8.3` for 120Hz displays.
+
 ## Multi-App Orchestration
 
 One session = one app + device. Add `--app <name>` to any command, or script several apps at once:

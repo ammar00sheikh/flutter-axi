@@ -30,6 +30,8 @@ export interface AppState {
   /** Flutter project root the app was launched from. */
   projectRoot: string | null;
   launchedAt: string | null;
+  /** Authenticated VM service WebSocket URI (performance layer). */
+  vmServiceUri?: string | null;
 }
 
 const EMPTY_STATE: AppState = {
@@ -40,6 +42,7 @@ const EMPTY_STATE: AppState = {
   appId: null,
   projectRoot: null,
   launchedAt: null,
+  vmServiceUri: null,
 };
 
 function appFile(session?: string): string {

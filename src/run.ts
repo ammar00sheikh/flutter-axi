@@ -38,6 +38,14 @@ import {
   type DeviceTarget,
 } from "./device.js";
 import { resolveOutputPath } from "./paths.js";
+import {
+  collectMemory,
+  computeFrameStats,
+  connectVm,
+  recordFrames,
+  type FrameStats,
+  type MemorySnapshot,
+} from "./vmservice.js";
 
 /** Read all of stdin into a string. */
 export async function readStdin(): Promise<string> {
@@ -73,6 +81,8 @@ export interface AppHelper {
   permission(action: "grant" | "revoke" | "reset", name: string): Promise<void>;
   deeplink(url: string): Promise<void>;
   push(payload: { title: string; body: string; data?: Record<string, string> }): Promise<void>;
+  perf(): Promise<MemorySnapshot>;
+  perfFrames(opts?: { duration?: number; budget?: number }): Promise<FrameStats>;
 }
 
 function deviceTarget(session: string | undefined): DeviceTarget {
@@ -204,6 +214,26 @@ export function createAppHelper(session?: string): AppHelper {
 
     async push(payload: { title: string; body: string; data?: Record<string, string> }) {
       await runPush(deviceTarget(session), payload);
+    },
+
+    async perf() {
+      const client = await connectVm(session);
+      try {
+        return await collectMemory(client);
+      } finally {
+        client.close();
+      }
+    },
+
+    async perfFrames(opts: { duration?: number; budget?: number } = {}) {
+      const durationMs = opts.duration ?? 5000;
+      const client = await connectVm(session);
+      try {
+        const samples = await recordFrames(client, durationMs);
+        return computeFrameStats(samples, durationMs, opts.budget ?? 16.7);
+      } finally {
+        client.close();
+      }
     },
   };
 }
