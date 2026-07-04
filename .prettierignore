@@ -1,0 +1,12 @@
+# Generated files - owned by their generators, not prettier.
+CHANGELOG.md
+.release-please-manifest.json
+skills/flutter-axi/SKILL.md
+# Generated fixture app (setup-fixture.sh) and run artifacts.
+bench/fixtures/
+bench/results/
+bench/published-results/*.jsonl
+bench/published-results/*.csv
+dist/
+# Local (untracked) agent settings.
+.claude/settings.local.json

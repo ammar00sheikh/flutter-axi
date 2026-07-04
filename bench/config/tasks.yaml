@@ -1,0 +1,160 @@
+# Benchmark tasks.
+#
+# Placeholders substituted by the runner:
+#   __FIXTURE_ROOT__ — absolute path to the counter fixture app
+#   __DEVICE__       — booted device/simulator id
+#
+# Flutter-layer tasks run under both conditions against the `flutter create`
+# counter app (deterministic, zero custom code). Native-layer tasks
+# (applicable_conditions: [flutter-axi]) exercise device capabilities raw
+# dart-mcp does not have; they are reported N/A for dart-mcp, not failed.
+
+tasks:
+  counter_read_initial:
+    category: single_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__ and
+      report the initial value of the counter shown on its home screen.
+      Answer with just the number.
+    grading:
+      grading_hint: >-
+        The counter app starts at 0. The agent must have launched the app and
+        read the value from the live widget tree, not assumed it.
+
+  counter_increment_5:
+    category: multi_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__, tap the
+      increment button exactly 5 times, then report the final counter value.
+    grading:
+      grading_hint: >-
+        The final counter value must be 5 and must be read back from the app
+        (widget tree or driver get_text), not inferred.
+
+  counter_tree_inspect:
+    category: single_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__ and
+      report (1) the exact title text shown in the app bar and (2) the widget
+      type of the control used to increment the counter.
+    grading:
+      grading_hint: >-
+        Title is "Flutter Demo Home Page"; the increment control is a
+        FloatingActionButton.
+
+  counter_hot_reload:
+    category: multi_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__. Then
+      edit lib/main.dart so the home page title string 'Flutter Demo Home
+      Page' becomes 'AXI Bench', hot reload the app, and confirm from the
+      running app that the new title is displayed. Revert the edit in the file
+      afterwards (no need to reload again).
+    grading:
+      grading_hint: >-
+        PASS requires the agent to edit the file, hot reload, and verify the
+        new title "AXI Bench" from the live widget tree after reload.
+
+  counter_logs:
+    category: investigation
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__ and
+      report the entry point file the app was launched with, according to the
+      app's own run logs (not your own assumption).
+    grading:
+      grading_hint: >-
+        The logs contain a line like "Launching lib/flutter_axi_main.dart on
+        ..." (flutter-axi) or "Launching lib/main.dart on ..." (dart-mcp).
+        PASS if the agent quotes the entry point consistent with its logs.
+
+  counter_errors_clean:
+    category: single_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__ and
+      check whether the app has any runtime errors. Give a definitive answer.
+    grading:
+      grading_hint: >-
+        The counter app has no runtime errors. PASS requires a definitive
+        "no errors" answer backed by actually querying runtime errors.
+
+  counter_screenshot:
+    category: single_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__ and save
+      a screenshot of it to ./counter.png. Report the absolute path of the
+      saved file.
+    grading:
+      grading_hint: >-
+        PASS requires a screenshot command to have succeeded and the reported
+        path to match where it was saved.
+
+  counter_restart_state:
+    category: multi_step
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__, tap the
+      increment button 3 times, hot restart the app, and report the counter
+      value after the restart. Explain what happened to the state.
+    grading:
+      grading_hint: >-
+        Hot restart resets Dart state: after 3 increments and a restart the
+        counter is 0 again. PASS requires the post-restart value to be read
+        from the app.
+
+  native_gps_set:
+    category: native
+    applicable_conditions: [flutter-axi]
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__, then
+      set the device's mock GPS location to latitude 33.5138, longitude
+      36.2765 and confirm the command succeeded.
+    grading:
+      grading_hint: >-
+        PASS if a location-mocking command for the device succeeded (e.g.
+        flutter-axi gps). The counter app does not display location; verifying
+        command success is sufficient.
+
+  native_permission_cycle:
+    category: native
+    applicable_conditions: [flutter-axi]
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__, then
+      grant the app location permission, then revoke it. Confirm each step.
+    grading:
+      grading_hint: >-
+        PASS if both a grant and a revoke of location permission were executed
+        successfully against the launched app's id.
+
+  native_deeplink:
+    category: native
+    applicable_conditions: [flutter-axi]
+    prompt: >-
+      On device __DEVICE__, open the URL https://example.com (launch the
+      Flutter app at __FIXTURE_ROOT__ first so the device session is
+      attached). Confirm the URL was opened.
+    grading:
+      grading_hint: >-
+        PASS if a deep link / open-url command for the device succeeded.
+
+  native_push:
+    category: native
+    applicable_conditions: [flutter-axi]
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__, then
+      deliver a push notification with title "Bench" and body "Hello" to it,
+      and confirm delivery.
+    grading:
+      grading_hint: >-
+        PASS if a push/notification delivery command succeeded (on iOS
+        simulators this is a real APNs payload via simctl push).
+
+  native_lifecycle:
+    category: native
+    applicable_conditions: [flutter-axi]
+    prompt: >-
+      Launch the Flutter app at __FIXTURE_ROOT__ on device __DEVICE__, send it
+      to the background, bring it back to the foreground, then force-stop it.
+      Confirm each transition.
+    grading:
+      grading_hint: >-
+        PASS if background, foreground, and force-stop operations were each
+        executed successfully.
