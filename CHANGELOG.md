@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/ammar00sheikh/flutter-axi/compare/flutter-axi-v0.1.1...flutter-axi-v0.1.2) (2026-07-04)
+
+
+### Features
+
+* initial release of flutter-axi ([0089bb9](https://github.com/ammar00sheikh/flutter-axi/commit/0089bb9f481bc51bc226c41b639a0583b6ad0b2d))
+
 ## [0.1.1](https://github.com/ammar00sheikh/flutter-axi/compare/flutter-axi-v0.1.0...flutter-axi-v0.1.1) (2026-07-04)
 
 
