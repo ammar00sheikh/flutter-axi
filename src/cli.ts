@@ -470,6 +470,8 @@ script API (each of \`app\` and \`apps.<name>\`):
   await app.permission(action, name)
   await app.deeplink(url)
   await app.push({title, body, data})
+  await app.perf()                 Memory snapshot
+  await app.perfFrames({duration, budget})   Frame timing stats
   await app.stop()                 Stop the app
 
 examples:
