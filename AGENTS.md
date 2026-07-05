@@ -5,7 +5,7 @@ This file provides guidance to coding agents when working with code in this repo
 ## Commands
 
 ```sh
-npm run build        # tsc to dist/ + chmod the CLI entrypoint
+npm run build        # tsc to dist/ + mark the CLI entrypoint executable (via node, so it works cross-platform)
 npm run build:skill  # Regenerate skills/flutter-axi/SKILL.md from shared CLI guidance and SDK built-ins
 npm run dev          # Run the CLI from source with tsx
 npm test             # vitest run --dir test (unit suite, no devices needed)
