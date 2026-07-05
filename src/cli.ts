@@ -642,7 +642,9 @@ function formatSnapshotOutput(
     session: sessionForSuggestions(),
   });
   if (truncated) {
-    suggestions.push(`Run \`flutter-axi ${command} --full\` for the complete tree`);
+    suggestions.push(
+      `Run \`flutter-axi ${command} --full\` for the complete tree`,
+    );
   }
   if (suggestions.length > 0) {
     blocks.push(renderHelp(suggestions));
@@ -691,9 +693,7 @@ async function takeSnapshotWithRetry(
   throw lastError;
 }
 
-function deviceTargetFromState(overrides: {
-  appId?: string;
-}): DeviceTarget {
+function deviceTargetFromState(overrides: { appId?: string }): DeviceTarget {
   const state = requireAppState();
   return {
     platform: state.platform,
@@ -766,7 +766,10 @@ async function handleLaunch(args: string[], full: boolean): Promise<string> {
     );
   }
   const snap = await takeSnapshotWithRetry();
-  return renderOutput([blocks.join("\n"), formatSnapshotOutput(snap, "launch", full)]);
+  return renderOutput([
+    blocks.join("\n"),
+    formatSnapshotOutput(snap, "launch", full),
+  ]);
 }
 
 async function handleAttach(args: string[], full: boolean): Promise<string> {
@@ -785,14 +788,19 @@ async function handleAttach(args: string[], full: boolean): Promise<string> {
     ]),
   ];
   const snap = await takeSnapshotWithRetry();
-  return renderOutput([blocks.join("\n"), formatSnapshotOutput(snap, "attach", full)]);
+  return renderOutput([
+    blocks.join("\n"),
+    formatSnapshotOutput(snap, "attach", full),
+  ]);
 }
 
 async function handleApps(): Promise<string> {
   const raw = await callTool("list_running_apps");
   let apps: { pid: number; dtdUri: string }[] = [];
   try {
-    const parsed = JSON.parse(raw) as { apps?: { pid?: number; dtdUri?: string }[] };
+    const parsed = JSON.parse(raw) as {
+      apps?: { pid?: number; dtdUri?: string }[];
+    };
     if (Array.isArray(parsed.apps)) {
       apps = parsed.apps.map((a) => ({
         pid: a.pid ?? 0,
@@ -805,14 +813,18 @@ async function handleApps(): Promise<string> {
   if (apps.length === 0) {
     return renderOutput([
       "apps: 0 running apps in this session",
-      renderHelp(["Run `flutter-axi launch <root> --device <id>` to launch one"]),
+      renderHelp([
+        "Run `flutter-axi launch <root> --device <id>` to launch one",
+      ]),
     ]);
   }
   const header = `apps[${apps.length}]{pid,dtdUri}:`;
   const rows = apps.map((a) => `  ${a.pid},${a.dtdUri}`);
   return renderOutput([
     `${header}\n${rows.join("\n")}`,
-    renderHelp(["Run `flutter-axi snapshot` to see the attached app's widgets"]),
+    renderHelp([
+      "Run `flutter-axi snapshot` to see the attached app's widgets",
+    ]),
   ]);
 }
 
@@ -904,8 +916,14 @@ async function handleScroll(args: string[], full: boolean): Promise<string> {
     ]);
   }
   const opts = {
-    dx: parsed.values["dx"] !== undefined ? Number(parsed.values["dx"]) : undefined,
-    dy: parsed.values["dy"] !== undefined ? Number(parsed.values["dy"]) : undefined,
+    dx:
+      parsed.values["dx"] !== undefined
+        ? Number(parsed.values["dx"])
+        : undefined,
+    dy:
+      parsed.values["dy"] !== undefined
+        ? Number(parsed.values["dy"])
+        : undefined,
     durationMs:
       parsed.values["duration"] !== undefined
         ? Number(parsed.values["duration"])
@@ -916,7 +934,10 @@ async function handleScroll(args: string[], full: boolean): Promise<string> {
   );
 }
 
-async function handleScrollInto(args: string[], full: boolean): Promise<string> {
+async function handleScrollInto(
+  args: string[],
+  full: boolean,
+): Promise<string> {
   const ref = args[0];
   if (!ref) {
     throw new FlutterAxiError("Missing widget ref", "VALIDATION_ERROR", [
@@ -968,7 +989,11 @@ async function handleWait(args: string[]): Promise<string> {
   }
   await new Promise((r) => setTimeout(r, ms));
   const blocks = [encode({ waited: ms })];
-  blocks.push(renderHelp(getSuggestions({ command: "wait", session: sessionForSuggestions() })));
+  blocks.push(
+    renderHelp(
+      getSuggestions({ command: "wait", session: sessionForSuggestions() }),
+    ),
+  );
   return renderOutput(blocks);
 }
 
@@ -1000,7 +1025,9 @@ async function handleRestart(args: string[], full: boolean): Promise<string> {
 
 async function handleLogs(args: string[], full: boolean): Promise<string> {
   const parsed = parseFlags(args, ["--lines"]);
-  const maxLines = parsed.values["lines"] ? Number(parsed.values["lines"]) : 100;
+  const maxLines = parsed.values["lines"]
+    ? Number(parsed.values["lines"])
+    : 100;
   const state = requireAppState();
   const raw = await callTool("get_app_logs", { pid: state.pid, maxLines });
   let logText = raw;
@@ -1019,7 +1046,10 @@ async function handleLogs(args: string[], full: boolean): Promise<string> {
     ? { text: logText, truncated: false, totalLength: logText.length }
     : truncateText(logText);
   const blocks = [`logs:\n${tr.text.trimEnd()}`];
-  const suggestions = getSuggestions({ command: "logs", session: sessionForSuggestions() });
+  const suggestions = getSuggestions({
+    command: "logs",
+    session: sessionForSuggestions(),
+  });
   if (tr.truncated) {
     suggestions.push("Run `flutter-axi logs --full` for the complete output");
   }
@@ -1129,7 +1159,12 @@ async function handlePerfMemory(): Promise<string> {
 }
 
 async function handlePerfFrames(args: string[]): Promise<string> {
-  const parsed = parseFlags(args, ["--duration", "--tap", "--scroll", "--budget"]);
+  const parsed = parseFlags(args, [
+    "--duration",
+    "--tap",
+    "--scroll",
+    "--budget",
+  ]);
   const durationMs = parsed.values["duration"]
     ? Number(parsed.values["duration"])
     : 5000;
@@ -1186,7 +1221,7 @@ async function handlePerfFrames(args: string[]): Promise<string> {
         `frames: 0 frames rendered during the ${durationMs}ms window - the UI was idle`,
         renderHelp([
           "Pass --tap <ref> or --scroll <ref> to generate load during the window",
-          'Example: `flutter-axi perf frames --duration 5000 --scroll type:ListView`',
+          "Example: `flutter-axi perf frames --duration 5000 --scroll type:ListView`",
         ]),
       ]);
     }
@@ -1240,7 +1275,9 @@ async function handlePerfTrace(args: string[]): Promise<string> {
       writeFileSync(filePath, JSON.stringify({ traceEvents }));
       return renderOutput([
         encode({ trace: filePath, events: traceEvents.length }),
-        renderHelp(["Open the file in https://ui.perfetto.dev or chrome://tracing"]),
+        renderHelp([
+          "Open the file in https://ui.perfetto.dev or chrome://tracing",
+        ]),
       ]);
     }
     throw new FlutterAxiError(
@@ -1324,9 +1361,11 @@ async function handleGps(args: string[]): Promise<string> {
     }
     const points = parseRouteFile(readFileSync(routePath, "utf-8"));
     if (points.length === 0) {
-      throw new FlutterAxiError("Route file has no points", "VALIDATION_ERROR", [
-        'Route files are JSONL: {"lat": 33.5, "lon": 36.2} per line',
-      ]);
+      throw new FlutterAxiError(
+        "Route file has no points",
+        "VALIDATION_ERROR",
+        ['Route files are JSONL: {"lat": 33.5, "lon": 36.2} per line'],
+      );
     }
     const interval = parsed.values["interval"]
       ? Number(parsed.values["interval"])
@@ -1343,10 +1382,14 @@ async function handleGps(args: string[]): Promise<string> {
   const lat = Number(parsed.positional[0]);
   const lon = Number(parsed.positional[1]);
   if (Number.isNaN(lat) || Number.isNaN(lon)) {
-    throw new FlutterAxiError("Missing or invalid coordinates", "VALIDATION_ERROR", [
-      "Run `flutter-axi gps 33.5138 36.2765`",
-      "Or play a route: `flutter-axi gps --route ./route.jsonl`",
-    ]);
+    throw new FlutterAxiError(
+      "Missing or invalid coordinates",
+      "VALIDATION_ERROR",
+      [
+        "Run `flutter-axi gps 33.5138 36.2765`",
+        "Or play a route: `flutter-axi gps --route ./route.jsonl`",
+      ],
+    );
   }
   await runGps(target, lat, lon);
   return encode({ gps: { lat, lon } });
@@ -1395,7 +1438,9 @@ async function handlePush(args: string[]): Promise<string> {
       throw new FlutterAxiError(
         `Payload file not found: ${path}`,
         "VALIDATION_ERROR",
-        ['Run `flutter-axi push --title "Hi" --body "There"` for a simple payload'],
+        [
+          'Run `flutter-axi push --title "Hi" --body "There"` for a simple payload',
+        ],
       );
     }
     const raw = JSON.parse(readFileSync(path, "utf-8")) as {
@@ -1415,7 +1460,9 @@ async function handlePush(args: string[]): Promise<string> {
       throw new FlutterAxiError(
         "Missing --title and/or --body",
         "VALIDATION_ERROR",
-        ['Run `flutter-axi push --title "New message" --body "You have a new message"`'],
+        [
+          'Run `flutter-axi push --title "New message" --body "You have a new message"`',
+        ],
       );
     }
     const data: Record<string, string> = {};
@@ -1470,9 +1517,11 @@ async function handleAppLifecycle(args: string[]): Promise<string> {
 
 async function handleRun(): Promise<string> {
   if (process.stdin.isTTY) {
-    throw new FlutterAxiError("No script provided on stdin", "VALIDATION_ERROR", [
-      "Pipe a script: flutter-axi run <<'EOF'\\n...\\nEOF",
-    ]);
+    throw new FlutterAxiError(
+      "No script provided on stdin",
+      "VALIDATION_ERROR",
+      ["Pipe a script: flutter-axi run <<'EOF'\\n...\\nEOF"],
+    );
   }
   const content = await readStdin();
   if (!content.trim()) {
@@ -1526,7 +1575,9 @@ async function handleSetup(args: string[]): Promise<string> {
       "Run `flutter-axi launch <root> --device <id>` - the driver shim is used automatically",
     ];
     if (result.pubspecUpdated) {
-      help.unshift("Run `flutter pub get` in the project to fetch flutter_driver");
+      help.unshift(
+        "Run `flutter pub get` in the project to fetch flutter_driver",
+      );
     }
     return renderOutput([
       `driver:\n  status: ${status}\n  shim: ${result.shimWritten ? "written" : "up to date"}\n  pubspec: ${result.pubspecUpdated ? "updated" : "up to date"}`,
@@ -1562,7 +1613,9 @@ async function handleHome(_full: boolean): Promise<string> {
     // Bridge up but no app attached yet.
     return renderOutput([
       encode({ app: "bridge running, no app attached" }),
-      renderHelp(["Run `flutter-axi launch <root> --device <id>` to launch an app"]),
+      renderHelp([
+        "Run `flutter-axi launch <root> --device <id>` to launch an app",
+      ]),
     ]);
   }
   const state = readAppState();
