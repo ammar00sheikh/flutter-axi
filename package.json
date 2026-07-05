@@ -29,7 +29,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/bin/flutter-axi.js",
+    "build": "tsc && node -e \"fs.chmodSync('dist/bin/flutter-axi.js', 0o755)\"",
     "build:skill": "tsx scripts/build-skill.ts",
     "dev": "tsx bin/flutter-axi.ts",
     "test": "vitest run --dir test",
