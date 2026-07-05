@@ -57,8 +57,8 @@ Teardown kills the bridge's process group so `dart mcp-server` and the `flutter 
 
 ### Snapshots: the uid -> finder registry
 
-The Dart MCP driver addresses widgets with *finders* (ByValueKey/ByText/ByType/...), not uids, so flutter-axi mints its own:
-`takeSnapshot` (`src/actions.ts`) fetches `get_widget_tree` (JSON inspector nodes), `src/widgettree.ts` parses it and derives the best *simple* finder per node (ValueKey from the description annotation > unique text > unique non-structural type; ambiguous nodes render without a uid), `src/refs.ts` persists the uid->finder map to the session's `refs.json`, and the generation counter (`src/generation.ts`) stamps refs as `uid=g<N>:12`.
+The Dart MCP driver addresses widgets with _finders_ (ByValueKey/ByText/ByType/...), not uids, so flutter-axi mints its own:
+`takeSnapshot` (`src/actions.ts`) fetches `get_widget_tree` (JSON inspector nodes), `src/widgettree.ts` parses it and derives the best _simple_ finder per node (ValueKey from the description annotation > unique text > unique non-structural type; ambiguous nodes render without a uid), `src/refs.ts` persists the uid->finder map to the session's `refs.json`, and the generation counter (`src/generation.ts`) stamps refs as `uid=g<N>:12`.
 Action commands resolve refs through `resolveFinderArg`, which fails loudly with `STALE_REF` on generation mismatch and `REF_NOT_FOUND` on unknown uids; `text:`/`key:`/`type:`/`tooltip:`/`label:` finder strings bypass the registry entirely.
 Nested Descendant/Ancestor finders are deliberately not derived - the Dart MCP server (SDK 3.11.5) forwards nested finder maps in Dart `toString()` form, which the driver's jsonDecode rejects (see `test/fixtures/mcp-outputs.md` for this and every captured output format).
 
@@ -66,7 +66,7 @@ Post-action snapshots wait `POST_ACTION_SETTLE_MS` (driver commands return when 
 
 ### Native layer
 
-`src/device.ts` is pure command *builders* (exact argv, unit-testable without any toolchain) plus thin executors with an injectable `exec`.
+`src/device.ts` is pure command _builders_ (exact argv, unit-testable without any toolchain) plus thin executors with an injectable `exec`.
 `resolveAdb` probes ANDROID_HOME/ANDROID_SDK_ROOT/the default macOS SDK path/PATH; a missing toolchain surfaces as a structured `TOOLCHAIN_MISSING` error, never a raw ENOENT.
 Friendly permission names map per platform (`PERMISSION_MAP`); iOS push writes a real `.apns` payload for `simctl push`, Android push is a local-notification approximation (documented limitation).
 
