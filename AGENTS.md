@@ -37,7 +37,7 @@ Every invocation is a short-lived process, so anything that must survive across 
 
 ### Process model
 
-Three processes: CLI -> bridge -> `dart mcp-server` (which drives the running Flutter app via DTD / flutter_driver), plus direct `adb`/`xcrun simctl` child processes for the native layer (no bridge involved).
+Three processes: CLI -> bridge -> `dart mcp-server` (which drives the running Flutter app via DTD / flutter_driver), plus two bridge-free channels: direct `adb`/`xcrun simctl` child processes for the native layer, and a direct WebSocket connection to the app's VM service for the perf layer.
 
 The CLI (`bin/flutter-axi.ts` -> `src/cli.ts`) parses args, calls MCP tools through the bridge, and formats output.
 `ensureBridge` (`src/client.ts`) reads its session's `bridge.pid` and reuses a live bridge only after a **deep** health check (`/health?deep=1` drives one `list_running_apps` call); otherwise it spawns the bridge (`bin/flutter-axi-bridge.ts` -> `src/bridge.ts`) **detached** as a process group leader and polls health until the `FLUTTER_AXI_BRIDGE_TIMEOUT_MS` deadline (default 30s).
