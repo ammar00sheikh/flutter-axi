@@ -70,6 +70,21 @@ Post-action snapshots wait `POST_ACTION_SETTLE_MS` (driver commands return when 
 `resolveAdb` probes ANDROID_HOME/ANDROID_SDK_ROOT/the default macOS SDK path/PATH; a missing toolchain surfaces as a structured `TOOLCHAIN_MISSING` error, never a raw ENOENT.
 Friendly permission names map per platform (`PERMISSION_MAP`); iOS push writes a real `.apns` payload for `simctl push`, Android push is a local-notification approximation (documented limitation).
 
+### Performance layer (`perf`)
+
+The Dart MCP server exposes no performance tools, so `src/vmservice.ts` talks to the running app's VM service directly: a WebSocket JSON-RPC client built on Node's global WebSocket (no dependency added).
+The authenticated endpoint URI is discovered from the app's own run logs (the `app.debugPort` event carries `wsUri`; `parseVmServiceUri`) and cached in the session's `app.json` (`vmServiceUri`), so later short-lived CLI invocations connect without re-reading logs.
+
+Four subcommands, all returning pre-aggregated summaries rather than raw event streams (`handlePerf` in `src/cli.ts`):
+
+- `perf` - memory: `getMemoryUsage` per isolate plus `getProcessMemoryUsage` RSS when the embedder provides it (`collectMemory`).
+- `perf frames` - subscribes to the `Extension` stream and collects `Flutter.Frame` events for a window (`recordFrames`), then `computeFrameStats` aggregates jank count vs the frame budget (default 16.7ms; `--budget 8.3` for 120Hz), avg/p95/max build and raster times, and fps. Frames only exist while the UI renders, so `--tap <ref>` / `--scroll <ref>` drive driver actions during the window as a load generator; an idle window reports a definitive zero with the load-flag suggestion.
+- `perf trace start|stop` - `setVMTimelineFlags` (Dart, Embedder, GC streams) + `clearVMTimeline`, then `getVMTimeline` written as `{traceEvents}` JSON, loadable in Perfetto / chrome://tracing. Start and stop are separate CLI invocations; the recording state lives in the VM, not in flutter-axi.
+- `perf cpu` - `getCpuSamples` over a window bounded by `getVMTimelineMicros`, aggregated by leaf stack frame into top functions by exclusive samples (`aggregateCpuSamples`). Fails with a structured `DRIVER_ERROR` (profiler unavailable) rather than a raw RPC error.
+
+The `run` script API mirrors the read side: `app.perf()` and `app.perfFrames(opts)`.
+Pure logic (URI parsing, frame stats, CPU aggregation, byte formatting) is unit-tested against captured formats in `test/vmservice.test.ts`; the live loop (memory, frames under tap load, trace capture) is covered in `e2e/single-app.e2e.test.ts`.
+
 ### The `run` script runner (multi-app)
 
 `flutter-axi run` (`src/run.ts`) executes a stdin script with `app` (the invoking session) and `apps.<name>` (a Proxy lazily binding helpers to named sessions) globals - one script can orchestrate two apps on two devices.
