@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/ammar00sheikh/flutter-axi/compare/flutter-axi-v0.1.1...flutter-axi-v0.1.2) (2026-07-05)
+
+
+### Bug Fixes
+
+* make the build script cross-platform ([8fd1391](https://github.com/ammar00sheikh/flutter-axi/commit/8fd1391f862a84938bde1114ca936dd1c9fea646))
+
 ## [0.1.1](https://github.com/ammar00sheikh/flutter-axi/compare/flutter-axi-v0.1.0...flutter-axi-v0.1.1) (2026-07-04)
 
 
